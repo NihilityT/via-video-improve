@@ -1,6 +1,6 @@
 `
 @name video-improve
-@version 0.0.5
+@version 0.0.6
 
 @sec_1cm 10
 @increase_1cm 5
@@ -40,20 +40,23 @@ function throttle(fn, wait) {
 
 function is_same_size_position(ele1, ele2) {
     try {
-        return ele1.clientWidth === ele2.clientWidth &&
-            ele1.clientHeight === ele2.clientHeight &&
-            ele1.scrollHeight === ele2.scrollHeight;
+        return ele1.clientWidth == ele2.clientWidth &&
+            ele1.clientHeight == ele2.clientHeight &&
+            ele1.scrollHeight == ele2.scrollHeight;
     } catch {
         return false;
     }
 }
 
 function find_top_wrap_ele(ele) {
-    while (ele.tagName !== 'BODY' &&
-           is_same_size_position(ele, ele.parentElement)) {
+    let wrap = ele;
+    while (ele.tagName !== 'BODY') {
         ele = ele.parentElement;
+        if (is_same_size_position(wrap, ele)) {
+            wrap = ele;
+        }
     }
-    return ele;
+    return wrap;
 }
 
 function is_parent(ele, parent) {
