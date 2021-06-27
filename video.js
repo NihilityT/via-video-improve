@@ -389,6 +389,7 @@ const hook_video_control = hook => {
     const {video, hook_fn, event_clearer} = hook;
     const top_wrap = find_top_wrap_ele(video);
     const wrap = document.createElement('div');
+    const paddle_div = document.createElement('div');
     const speed_div = document.createElement('div');
     const jump_div = document.createElement('div');
     const skip_div = document.createElement('div');
@@ -396,7 +397,7 @@ const hook_video_control = hook => {
     const control = create_control_panel();
 
     top_wrap.append(wrap);
-    const buttons = [speed_div, jump_div, skip_div, fullscreen_div];
+    const buttons = [paddle_div, speed_div, jump_div, skip_div, fullscreen_div];
     wrap.append.apply(wrap, buttons);
     wrap.append(control.div);
 
@@ -409,7 +410,7 @@ const hook_video_control = hook => {
     pointer-events: none;
     z-index: 9999999999;
     display: none;
-    font-size: 0.5cm;
+    font-size: ${video.clientHeight / buttons.length / 4}px;
     `;
 
     buttons.forEach(div => div.style.cssText =
@@ -423,6 +424,9 @@ const hook_video_control = hook => {
     color: white;
     pointer-events: auto;
     `);
+
+    paddle_div.style.pointerEvents = 'none';
+    paddle_div.style.visibility = 'hidden';
 
     const skip_video = throttle(e => {
         video.currentTime = video.duration;
