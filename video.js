@@ -410,8 +410,13 @@ const hook_video_control = hook => {
     pointer-events: none;
     z-index: 9999999999;
     display: none;
-    font-size: ${video.clientHeight / buttons.length / 4}px;
     `;
+
+    const update_wrap_size = () => {
+        wrap.style.fontSize = `${Math.min(video.clientHeight, video.clientWidth) / buttons.length / 4}px`;
+    };
+
+    update_wrap_size();
 
     buttons.forEach(div => div.style.cssText =
     `
@@ -459,6 +464,7 @@ const hook_video_control = hook => {
     const hidden_wrap_delay = debounce(hidden_wrap, 3000);
 
     const display_wrap = throttle((e) => {
+        update_wrap_size();
         wrap.style.display = 'block';
         update_button();
         hidden_wrap_delay();
