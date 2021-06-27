@@ -1,6 +1,6 @@
 `
 @name video-improve
-@version 0.0.6
+@version 0.0.7
 
 @sec_1cm 10
 @increase_1cm 5
@@ -151,39 +151,53 @@ function TouchEvent2MouseEvent(event_type, event) {
                                         { bubbles: true, cancelable: true, composed: true }));
 }
 
-function add_tap_event_hook() {
+function add_tap_event_hook(element) {
     let start_touch, end_touch, end_event = {};
-    document.addEventListener('touchstart', e => {
+    const start = e => {
         start_touch = end_touch = copy(e.touches[0]);
         end_event = copy(e);
-    }, true);
-    document.addEventListener('touchmove', e => {
+    };
+    const move = e => {
         end_touch = copy(e.touches[0]);
         end_event = copy(e);
-    }, true);
-    document.addEventListener('touchend', e => {
+    };
+    const end = e => {
         if (Math.abs(start_touch.clientX - end_touch.clientX) <= 10 &&
             Math.abs(start_touch.clientY - end_touch.clientY) <= 10) {
             e.target.dispatchEvent(new TapEvent(end_event));
             e.preventDefault();
             e.target.dispatchEvent(TouchEvent2MouseEvent('click', end_event));
         }
-    }, true);
+    };
+
+    element.addEventListener('touchstart', start, true);
+    element.addEventListener('touchmove', move, true);
+    element.addEventListener('touchend', end, true);
+
+    return function event_clearer() {
+        element.removeEventListener('touchstart', start, true);
+        element.removeEventListener('touchmove', move, true);
+        element.removeEventListener('touchend', end, true);
+    };
 }
 
-function add_doubletap_event_hook() {
+function add_doubletap_event_hook(element) {
     let start_time = 0;
-    document.addEventListener('tap', e => {
+    const doubletap_judge = e => {
         if (Date.now() - start_time <= 250) {
             start_time = 0;
             e.target.dispatchEvent(new DoubleTapEvent(e));
         } else {
             start_time = Date.now();
         }
-    }, true);
-}
+    };
 
-[add_tap_event_hook, add_doubletap_event_hook].forEach(x => x());
+    element.addEventListener('tap', doubletap_judge, true);
+
+    return function event_clearer() {
+        element.removeEventListener('tap', doubletap_judge, true);
+    };
+}
 
 /* add custom event end */
 
@@ -272,6 +286,8 @@ const get_video_touch_hook = (video, e) => {
         top_wrap.append(video);
     }
 
+    const event_clearer = [add_tap_event_hook, add_doubletap_event_hook].map(x => x(top_wrap));
+
     const hook_fn = {
         start: [],
         move: [],
@@ -311,7 +327,7 @@ const get_video_touch_hook = (video, e) => {
         top_wrap.removeEventListener('touchend', touch_end);
     };
 
-    return { video, hook_fn, wrap: top_wrap, event_clearer: [remove_hook] };
+    return { video, hook_fn, wrap: top_wrap, event_clearer: event_clearer.concat(remove_hook) };
 };
 
 const hook_video_move = hook => {
@@ -397,16 +413,16 @@ const hook_video_control = hook => {
     `;
 
     buttons.forEach(div => div.style.cssText =
-                    `
-                    width: 3em;
-                    height: 3em;
-                    line-height: 3em;
-                    text-align: center;
-                    border: solid white;
-                    border-radius: 100%;
-                    color: white;
-                    pointer-events: auto;
-                    `);
+    `
+    width: 3em;
+    height: 3em;
+    line-height: 3em;
+    text-align: center;
+    border: solid white;
+    border-radius: 100%;
+    color: white;
+    pointer-events: auto;
+    `);
 
     const skip_video = throttle(e => {
         video.currentTime = video.duration;
@@ -645,39 +661,29 @@ function register_hook(hook) {
 }
 
 const hook_video = (video) => {
-    const hook_ = throttle(() => {
-        const exist_video = find_hook(video);
-        if (video.clientWidth && video.clientHeight &&
-            (!exist_video || is_parent(exist_video.wrap, find_top_wrap_ele(video)))) {
-            const hook = get_video_touch_hook(video);
-            hook_video_move(hook);
-            hook_video_time_change(hook);
-            hook_video_control(hook);
+    const exist_video = find_hook(video);
+    if (video.clientWidth && video.clientHeight &&
+        (!exist_video || is_parent(exist_video.wrap, find_top_wrap_ele(video)))) {
+        const hook = get_video_touch_hook(video);
+        hook_video_move(hook);
+        hook_video_time_change(hook);
+        hook_video_control(hook);
 
-            if (exist_video) {
-                exist_video.event_clearer.forEach(x => x());
-                Object.assign(exist_video, hook);
-                console.log('video-improve: reloaded for ', video, ', wrapped by ', find_top_wrap_ele(video));
-            } else {
-                register_hook(hook);
-                console.log('video-improve: loaded for ', video, ', wrapped by ', find_top_wrap_ele(video));
-            }
+        if (exist_video) {
+            exist_video.event_clearer.forEach(x => x());
+            Object.assign(exist_video, hook);
+            console.log('video-improve: reloaded for ', video, ', wrapped by ', find_top_wrap_ele(video));
+        } else {
+            register_hook(hook);
+            console.log('video-improve: loaded for ', video, ', wrapped by ', find_top_wrap_ele(video));
         }
-    }, 3000);
-    video.addEventListener('play', hook_);
-    video.addEventListener('timeupdate', hook_);
-};
-
-const auto_hook_video = e => {
-    const video = e.path.find((ele) => ele.tagName === 'VIDEO');
-    if (video) {
-        hook_video(video);
     }
 };
 
 get_videos().forEach(hook_video);
 
-get_frames(window).forEach((window) =>
-                           window.addEventListener('touchstart', throttle(auto_hook_video, 1000)));
+setInterval(() => {
+    get_videos().forEach(hook_video);
+}, 3000);
 
 }]);return _;}),0;
