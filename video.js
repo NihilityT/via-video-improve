@@ -333,7 +333,7 @@ const get_video_touch_hook = (video, e) => {
         start_point = new Point(e.touches[0].screenX, e.touches[0].screenY);
         start_time = video.currentTime;
 
-        hook_fn.start.forEach(fn => fn(e, start_time));
+        hook_fn.start.forEach((stop, fn) => !stop && fn(e, start_time), false);
     };
     if (e) {
         setTimeout(touch_start, 0, e);
@@ -344,11 +344,11 @@ const get_video_touch_hook = (video, e) => {
         const offset = end_point.sub(start_point);
         const time_length = px2cm(offset.x) * (this.sec_1cm || 1);
 
-        hook_fn.move.forEach(fn => fn(e, start_time, offset, time_length));
+        hook_fn.move.reduce((stop, fn) => !stop && fn(e, start_time, offset, time_length), false);
     };
 
     const touch_end = e => {
-        hook_fn.end.forEach(fn => fn(e));
+        hook_fn.end.reduce((stop, fn) => !stop && fn(e), false);
     };
 
     top_wrap.addEventListener('touchstart', touch_start, { passive: false });
