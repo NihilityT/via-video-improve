@@ -333,30 +333,48 @@ const get_video_touch_hook = (video, e) => {
 const hook_video_move = hook => {
     const {video, hook_fn} = hook;
 
-    hook_fn.start.push(() => {
-        paused = video.paused;
-    });
+    let playing_before_move;
+    let fast_forwarding;
+    let start_time_length;
 
-    let playing;
+    const init_variable = () => {
+        playing_before_move = false;
+        fast_forwarding = false;
+        start_time_length = 0;
+    }
+
     const pause = () => {
-        if (!video.paused) {
-            video.pause();
-            playing = true;
-        }
+        video.pause();
     };
-    const play = debounce(() => {
-        if (playing) {
+    const play = debounce((need_play) => {
+        if (need_play) {
             video.play();
-            playing = false;
         }
     }, 100);
 
+    const trigger_move = (x_distance_px) => {
+        return Math.abs(x_distance_px) >= get_1cm_pixel_num();
+    }
+
+    hook_fn.start.push(() => {
+        init_variable();
+        playing_before_move = !video.paused;
+    });
+
     hook_fn.move.push((e, start_time, x_distance_px, time_length) => {
+        if (!fast_forwarding && trigger_move(x_distance_px)) {
+            start_time_length = time_length;
+            fast_forwarding = true;
+            return;
+        }
+
         pause();
-        video.currentTime = Math.max(Math.min(start_time + time_length,
-                                              video.duration),
-                                     0);
-        play();
+        const offset_time_length = time_length - start_time_length;
+        const new_time = start_time + offset_time_length;
+        const new_time_in_duration =
+            Math.max(0, Math.min(new_time, video.duration));
+        video.currentTime = new_time_in_duration;
+        play(playing_before_move);
     });
 };
 
