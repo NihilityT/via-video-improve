@@ -120,6 +120,38 @@ function px2cm(px) {
     return px / get_1cm_pixel_num();
 }
 
+class Point {
+    constructor(x, y) {
+        if (Array.isArray(x)) {
+            this.x = Number(x[0]);
+            this.y = Number(x[1]);
+            return;
+        }
+        if (typeof x === 'object') {
+            this.x = Number(x.x);
+            this.y = Number(x.y);
+            return;
+        }
+        this.x = Number(x);
+        this.y = Number(y);
+    }
+
+    add(other) {
+        other = new Point(other);
+        return new Point(this.x + other.x, this.y + other.y);
+    }
+
+    sub(other) {
+        other = new Point(other);
+        return new Point(this.x - other.x, this.y - other.y);
+    }
+
+    distance(other) {
+        other = new Point(other);
+        return new Point(Math.abs(this.x - other.x), Math.abs(this.y - other.y));
+    }
+}
+
 /* lib end */
 
 /* add custom event begin */
@@ -152,18 +184,19 @@ function TouchEvent2MouseEvent(event_type, event) {
 }
 
 function add_tap_event_hook(element) {
-    let start_touch, end_touch, end_event = {};
+    let end_event = {};
+    let start_point, end_point;
     const start = e => {
-        start_touch = end_touch = copy(e.touches[0]);
+        start_point = new Point(e.touches[0].clientX, e.touches[0].clientY);
         end_event = copy(e);
     };
     const move = e => {
-        end_touch = copy(e.touches[0]);
+        end_point = new Point(e.touches[0].clientX, e.touches[0].clientY);
         end_event = copy(e);
     };
     const end = e => {
-        if (Math.abs(start_touch.clientX - end_touch.clientX) <= 10 &&
-            Math.abs(start_touch.clientY - end_touch.clientY) <= 10) {
+        const distance = end_point.distance(start_point);
+        if (distance.x <= 10 && distance.y <= 10) {
             e.target.dispatchEvent(new TapEvent(end_event));
             e.preventDefault();
             e.target.dispatchEvent(TouchEvent2MouseEvent('click', end_event));
@@ -294,9 +327,10 @@ const get_video_touch_hook = (video, e) => {
         end: [],
     };
 
-    let start_x, start_time;
+    let start_time;
+    let start_point, end_point;
     const touch_start = e => {
-        start_x = e.touches[0].screenX;
+        start_point = new Point(e.touches[0].screenX, e.touches[0].screenY);
         start_time = video.currentTime;
 
         hook_fn.start.forEach(fn => fn(e, start_time));
@@ -306,11 +340,11 @@ const get_video_touch_hook = (video, e) => {
     }
 
     const touch_move = e => {
-        const end_x = e.touches[0].screenX;
-        const x_distance_px = end_x - start_x;
-        const time_length = px2cm(x_distance_px) * (this.sec_1cm || 1);
+        end_point = new Point(e.touches[0].screenX, e.touches[0].screenY);
+        const offset = end_point.sub(start_point);
+        const time_length = px2cm(offset.x) * (this.sec_1cm || 1);
 
-        hook_fn.move.forEach(fn => fn(e, start_time, x_distance_px, time_length));
+        hook_fn.move.forEach(fn => fn(e, start_time, offset, time_length));
     };
 
     const touch_end = e => {
@@ -352,8 +386,8 @@ const hook_video_move = hook => {
         }
     }, 100);
 
-    const trigger_move = (x_distance_px) => {
-        return Math.abs(x_distance_px) >= get_1cm_pixel_num();
+    const trigger_move = (offset) => {
+        return Math.abs(offset.x) >= get_1cm_pixel_num();
     }
 
     hook_fn.start.push(() => {
@@ -361,8 +395,8 @@ const hook_video_move = hook => {
         playing_before_move = !video.paused;
     });
 
-    hook_fn.move.push((e, start_time, x_distance_px, time_length) => {
-        if (!fast_forwarding && trigger_move(x_distance_px)) {
+    hook_fn.move.push((e, start_time, offset, time_length) => {
+        if (!fast_forwarding && trigger_move(offset)) {
             start_time_length = time_length;
             fast_forwarding = true;
             return;
@@ -390,7 +424,7 @@ const hook_video_time_change = hook => {
         video_prompt.right_time.innerText = sec2HHMMSS(video.duration);
     });
 
-    hook_fn.move.push((e, start_time, x_distance_px, time_length) => {
+    hook_fn.move.push((e, start_time, offset, time_length) => {
         video_prompt.div.style.display = 'block';
         time_length = video.currentTime - start_time;
         video_prompt.symbol.innerText = time_length < 0 ? '-' : '+';
