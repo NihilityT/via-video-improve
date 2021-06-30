@@ -412,6 +412,37 @@ const hook_video_move = hook => {
     });
 };
 
+const hook_video_hold_double_speed_play = hook => {
+    const {video, hook_fn} = hook;
+
+    let holding = undefined;
+    let old_playbackRate = 1;
+
+    const speed_up = debounce(() => {
+        if (holding === undefined) {
+            video.playbackRate = old_playbackRate * 2;
+            holding = true;
+        }
+    }, 500);
+
+    hook_fn.start.push(() => {
+        holding = undefined;
+        speed_up();
+        return false;
+    });
+
+    hook_fn.move.push((e, start_time, offset, time_length) => {
+        if (holding) {
+            return true;
+        }
+    });
+
+    hook_fn.end.push(() => {
+        holding = false;
+        return false;
+    });
+};
+
 const hook_video_time_change = hook => {
     const {video, hook_fn, event_clearer} = hook;
     const top_wrap = find_top_wrap_ele(video);
@@ -727,6 +758,7 @@ const hook_video = (video) => {
     if (video.clientWidth && video.clientHeight &&
         (!exist_video || is_parent(exist_video.wrap, find_top_wrap_ele(video)))) {
         const hook = get_video_touch_hook(video);
+        hook_video_hold_double_speed_play(hook);
         hook_video_move(hook);
         hook_video_time_change(hook);
         hook_video_control(hook);
